@@ -17,9 +17,11 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 from selenium.common.exceptions import NoSuchElementException,StaleElementReferenceException,TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
+import numpy as np
+import pandas as pd
 PATH=r"C:\Program Files (x86)\chromedriver.exe"
 driver_1=webdriver.Chrome(PATH)
-driver_2=webdriver.Chrome(PATH)
+#driver_2=webdriver.Chrome(PATH)
 URL="https://dashboard.sidegig.ng/public/account"
 lock=threading.Lock()
 
@@ -62,13 +64,39 @@ def agent(user,driver):
                 EC.presence_of_element_located((By.CSS_SELECTOR,"li:nth-child(4) .side-menu__item")))
     jobs=driver.find_element_by_css_selector("li:nth-child(4) .side-menu__item")
     jobs.click()
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.TAG_NAME, "tbody")))
+    rates=driver.find_elements_by_css_selector(".table-responsive td:nth-child(5)")
+    rates=[rate.text for rate in rates]
+    rates= [rate.split("/") for rate in rates]
+    int_rates=[[int(rate)for rate in split_rate] for split_rate in rates]
+    print(int_rates)
+    normalized_rates= [(rate[1]-rate[0])*rate[1] for rate in int_rates]
+    normalized_rates=np.log(np.array(normalized_rates))
+    minimum_rate=normalized_rates.min()
+    minimum_rate_index=normalized_rates.argmin()
+    view_job=driver.find_element_by_css_selector("tr:nth-child({}) .btn-primary".format(minimum_rate_index))
+    actions.move_to_element(view_job).click().perform()
+    time.sleep(5)
+
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "step-1")))
+    job_description= driver.find_elements_by_css_selector("#step-1")
+    job_terms=[terms.text for terms in job_description]
+    print(job_terms)
+    job_link= driver.find_elements_by_css_selector("#step-1 a")[0]
+    job_link.click()
+    time.sleep(5)
+    print(minimum_rate, normalized_rates, minimum_rate_index, sep="\n")
+
+
     print(driver.window_handles)
     #lock.release()
     
 
 x=threading.Thread(target=agent,args=(0,driver_1))
-y=threading.Thread(target=agent, args=(1,driver_2))
+#y=threading.Thread(target=agent, args=(1,driver_2))
 x.start()
-y.start()
+#y.start()
 x.join()
-y.join()
+#y.join()
