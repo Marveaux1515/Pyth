@@ -9,6 +9,7 @@ import sys
 sys.path.append("..")
 import threading
 from config import SIDEGIG_DETAILS, INSTAGRAM_DETAILS
+from Utils import Locator
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
@@ -21,8 +22,9 @@ import numpy as np
 import pandas as pd
 PATH=r"C:\Program Files (x86)\chromedriver.exe"
 driver_1=webdriver.Chrome(PATH)
-#driver_2=webdriver.Chrome(PATH)
+driver_2=webdriver.Chrome(PATH)
 URL="https://dashboard.sidegig.ng/public/account"
+DEFAULT_URL="https://dashboard.sidegig.ng/public/account/user/jobs/active"
 lock=threading.Lock()
 
 def agent(user,driver):   
@@ -43,7 +45,7 @@ def agent(user,driver):
         #lock.acquire()
         actions=ActionChains(driver)
         time.sleep(2)
-        sidegig_username= SIDEGIG_DETAILS["user_name"][user]
+        sidegig_username= SIDEGIG_DETAILS["username"][user]
         sidegig_password= SIDEGIG_DETAILS["password"][user]
         WebDriverWait(driver, 8).until(
                     EC.presence_of_element_located((By.ID,"user_name")))
@@ -67,9 +69,15 @@ def agent(user,driver):
                     EC.presence_of_element_located((By.CSS_SELECTOR,"li:nth-child(4) .side-menu__item")))
         jobs=driver.find_element_by_css_selector("li:nth-child(4) .side-menu__item")
         jobs.click()
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.TAG_NAME, "tbody")))
+        try:
+            #job_check=WebDriverWait(driver, 10).until(
+                #EC.presence_of_element_located((By.TAG_NAME, "tbody")))
+            driver.find_element_by_css_selector("tbody")
+        except NoSuchElementException:
+            job_check=False
+            print(f"return_value={job_check}")
         rates=driver.find_elements_by_css_selector(".table-responsive td:nth-child(5)")
+        print(driver.current_url)
         rates=[rate.text for rate in rates]
         rates= [rate.split("/") for rate in rates]
         int_rates=[[int(rate)for rate in split_rate] for split_rate in rates]
@@ -78,23 +86,21 @@ def agent(user,driver):
         normalized_rates=np.log(np.array(normalized_rates))
         minimum_rate=normalized_rates.min()
         #minimum_rate_index=np.random.randint(low=1,high=len(normalized_rates))
-        minimum_rate_index=2
-        #if len(normalized_rates)>1:
-            #minimum_rate_index=normalized_rates.argmin()
+        #minimum_rate_index=2
+        if len(normalized_rates)>1:
+            minimum_rate_index=int(normalized_rates.argmin())+1
+        else:
+            minimum_rate_index=1
         view_job=driver.find_element_by_css_selector("tr:nth-child({}) .btn-primary".format(minimum_rate_index))
         actions.move_to_element(view_job).click().perform()
         time.sleep(5)
-       # else:
-            #minimum_rate_index=normalized_rates.argmin()
-            #view_job=driver.find_element_by_css_selector(".btn-primary".format(minimum_rate_index))
-            #actions.move_to_element(view_job).click().perform()
-            #time.sleep(5)
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.ID, "step-1")))
         job_description= driver.find_elements_by_css_selector("#step-1")
+        
         job_terms=[terms.text for terms in job_description]
         def search_job_description(text):
-            possible_jobs=["follow","like","comment", "save"]
+            possible_jobs=["follow","like", "save"]
             match_obj=re.search("(follow).*(like).*",text,re.S|re.I)
             if match_obj:
                 job=match_obj.groups()
@@ -192,7 +198,7 @@ def agent(user,driver):
                     EC.presence_of_element_located((By.CSS_SELECTOR,"._bz0w")))
                 posts= driver.find_elements_by_css_selector("._bz0w a")
                 print(f"post_link_legth is {len(posts)}")
-                posts=[post.get_attribute("href") for post in posts[:3]]
+                posts=[post.get_attribute("href") for post in posts[:2]]
                 for post_link in posts:
                     print(post_link)
                     driver.get(post_link)
@@ -209,8 +215,9 @@ def agent(user,driver):
         driver.switch_to.window(driver.window_handles[-1])
         time.sleep(5)
         execute_job(job)
-        driver.close()
-        driver.switch_to.window(driver.window_handles[0])
+        if len(driver.window_handles)>1:
+            driver.close()
+            driver.switch_to.window(driver.window_handles[0])
         return
         
     #lock.release()
@@ -218,7 +225,7 @@ def agent(user,driver):
         driver.execute_script("window.open('about:blank', 'tab2');")
         driver.switch_to.window("tab2")
         driver.get('https://www.instagram.com/')
-        instagram_username=INSTAGRAM_DETAILS["user_name"][user][0]
+        instagram_username=INSTAGRAM_DETAILS["username"][user][0]
         instagram_password=INSTAGRAM_DETAILS["password"][user][0]
         WebDriverWait(driver, 8).until(
                     EC.presence_of_element_located((By.NAME,"username")))
@@ -230,7 +237,7 @@ def agent(user,driver):
         WebDriverWait(driver, 8).until(
                     EC.presence_of_element_located((By.TAG_NAME,"button")))
         driver.find_elements_by_tag_name("button")[1].click()
-        time.sleep(5)
+        time.sleep(7)
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
         
@@ -240,8 +247,8 @@ def agent(user,driver):
     side_gig_tab()
 
 x=threading.Thread(target=agent,args=(0,driver_1))
-#y=threading.Thread(target=agent, args=(1,driver_2))
+y=threading.Thread(target=agent, args=(1,driver_2))
 x.start()
-#y.start()
+y.start()
 x.join()
-#y.join()
+y.join()
