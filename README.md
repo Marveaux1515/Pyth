@@ -1,2 +1,2 @@
 # anything
-Nothing in particular, just a collection of my little side projects
+A collection of my side projects including automation scripts, webscraping and browser automation 
