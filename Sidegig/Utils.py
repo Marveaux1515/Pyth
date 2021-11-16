@@ -10,7 +10,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 
 class Locator():
     def __init__(self,driver) -> None:
-        self.wait_time=np.random.randint(low=8, high=12)
+        self.wait_time=np.random.randint(low=15, high=20)
         self.driver=driver
         return
     def refresh(self,style_dict:dict,style_type:str,styling:str)->Union[bool,list]:
@@ -24,7 +24,7 @@ class Locator():
             print(f"refresh exception as {e}",styling, "not found")
 
             return False
-    def locate(self,style_type:str,styling:str,base=False,refresh=True)->Union[bool,list]:
+    def locate(self,style_type:str,styling:str,base=False,refresh=True)->Union[bool,list,str]:
         style_dict={'Id':[By.ID,"self.driver.find_element_by_id(styling)",styling],
                     'Name':[By.NAME,"self.driver.find_element_by_name(styling)",styling],
                     'Css':[By.CSS_SELECTOR,"self.driver.find_elements_by_css_selector(styling)",styling],
@@ -32,10 +32,10 @@ class Locator():
                     'Tag_name':[By.TAG_NAME,"self.driver.find_elements_by_tag_name(styling)",styling]}
         if base:
             limit=np.inf
-            sleep_time=15
+            sleep_time=10
         else:
             limit=1
-            sleep_time=5
+            sleep_time=3
         count=0
         try:
             WebDriverWait(self.driver, self.wait_time).until(
@@ -46,7 +46,7 @@ class Locator():
             print(f"location exception as {e}" ,styling, "not found")
             if refresh:
                 islocated=False
-                while  not islocated and count <=limit:
+                while  not islocated and count <limit:
                     islocated=self.refresh(style_dict,style_type,styling)
                     count+=1
                     time.sleep(sleep_time)
@@ -56,14 +56,16 @@ class Locator():
                 return False
     def input_(self,input_details:list,style_type:list,styling:list)->bool:
         for i in range(len(input_details)):
-            elem=self.locate(style_type[i],styling[i])
+            elem=self.locate(style_type[i],styling[i],refresh=False)
             
             if elem:
+                elem.clear()
                 elem.send_keys(input_details[i])
             else:
                 return False
         return True
-    def click(self,style_type:str,styling:str,refresh:bool=True,elem_idx=0)-> bool:
+    def click(self,style_type:str,styling:str,refresh:bool=True,elem_idx=0,check_url=True)-> bool:
+        prev_url=self.driver.current_url
         elem=self.locate(style_type,styling,refresh=refresh)
         style_dict={'Id':[By.ID,"self.driver.find_element_by_id(styling)",styling],
                     'Name':[By.NAME,"self.driver.find_element_by_name(styling)",styling],
@@ -92,29 +94,40 @@ class Locator():
                     
         else:
             return False
-        time.sleep(3)
+        #time.sleep(5)
         curr_url=self.driver.current_url
         print(curr_url,"\t", link)
-        """try:
-            assert curr_url ==link or re.search(f"{link}$",curr_url) is not None
-        except AssertionError:
-            while curr_url !=link or re.search(f"{link}$",curr_url) is None:
-                self.driver.get(link)
-                curr_url=self.driver.current_url"""
-
+        if check_url:
+            if link:
+                try:
+                    assert curr_url ==link or re.search(f"^{link}[^/.*]",curr_url) is not None
+                except AssertionError:
+                    while curr_url !=link or re.search(f"^{link}[^/.*]",curr_url) is None:
+                        self.driver.get(link)
+                        curr_url=self.driver.current_url
+                        time.sleep(5)
+            else:
+                try:
+                    assert prev_url!= curr_url
+                except AssertionError:
+                    return False
         return True
     def get_attribute_(self,attrib,style_type,styling,multiple=False):
         elem=self.locate(style_type,styling)
+        
         if elem:
             if isinstance(elem,list):
                 if not multiple:
                     attr=elem[0].get_attribute(attrib)
                 else:
-                    if len(elem) > multiple:
-                        attr=[element.get_attribute for element in elem[:multiple]]
-                    else:
-                        attr=[element.get_attribute for element in elem]
-                
+                    print(len(elem))
+                    if isinstance(multiple,int):
+                        if len(elem) > multiple:
+                            attr=[element.get_attribute(attrib) for element in elem[:multiple]]
+                        else:
+                            attr=[element.get_attribute(attrib) for element in elem]
+                    elif isinstance(multiple,bool):
+                        attr=[element.get_attribute(attrib) for element in elem]
             else:
                 attr=elem.get_attribute(attrib)
         else:
@@ -126,11 +139,14 @@ class Locator():
             return elem[0].screenshot(f_path)
         else:
             return False
+class SideLocator(Locator):
+    def __init__(self, driver) -> None:
+        super().__init__(driver)
     def search_job_description(self,style_type:str,styling:str)->str:
         elem=self.locate(style_type,styling)
         if elem:
             text=str([terms.text for terms in elem])
-
+            print(text)
             possible_jobs=["follow","like","save"]
             match_obj=re.search("(follow).*(like).*",text,re.S|re.I)
             if match_obj:
