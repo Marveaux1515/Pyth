@@ -101,14 +101,22 @@ def main():
             if os.path.getsize(filename)==0 or os.path.exists(filename)==False :
                 writer.writeheader()
             writer.writerow(chosen_stock)
-    complete_stock_data=pd.DataFrame(stock_dictionary)
-    complete_stock_data.to_csv(FULL_STOCK_FILE, mode="a")
-
+    if os.path.exists(FULL_STOCK_FILE)==False :
+        complete_stock_data=pd.DataFrame(stock_dictionary)
+        complete_stock_data.to_csv(FULL_STOCK_FILE, mode="w",index=False)
+    else:
+        prev_stock_data=pd.read_csv(FULL_STOCK_FILE)
+        new_stock_data=pd.DataFrame(stock_dictionary)
+        complete_stock_data= prev_stock_data.append(new_stock_data)
+        complete_stock_data["Date"]=pd.to_datetime(complete_stock_data["Date"],dayfirst=True)
+        complete_stock_data.sort_values(by=["company","Date"],axis=0,inplace=True)
+        complete_stock_data.to_csv(FULL_STOCK_FILE,mode="w",index=False)
+        print(complete_stock_data)
     return
     
 if __name__=="__main__":
     PATH="C:\Program Files (x86)\chromedriver.exe"
-    FULL_STOCK_FILE="Companies_stock_data\Complete_Nigerian_Stock_Exchange_Data.csv"
+    FULL_STOCK_FILE=r"C:\Users\DELL\Desktop\D_SCIENCE\practicals\python files\Nigerian_Stock_exchange\Companies_stock_data\Complete_Nigerian_Stock_Exchange_Data.csv"
     driver=webdriver.Chrome(PATH)
     driver.get("https://ngxgroup.com/exchange/data/equities-price-list/")
     stock_dictionary={"company":[],
