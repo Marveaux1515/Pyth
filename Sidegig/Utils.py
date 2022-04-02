@@ -10,8 +10,9 @@ from selenium.webdriver.common.action_chains import ActionChains
 
 class Locator():
     def __init__(self,driver) -> None:
-        self.wait_time=np.random.randint(low=15, high=20)
+        self.wait_time=np.random.randint(low=20, high=25)
         self.driver=driver
+        self.default_url = "https://app.sidegig.co/account/user/jobs/active"
         return
     def refresh(self,style_dict:dict,style_type:str,styling:str)->Union[bool,list]:
         self.driver.refresh()
@@ -32,9 +33,9 @@ class Locator():
                     'Tag_name':[By.TAG_NAME,"self.driver.find_elements_by_tag_name(styling)",styling]}
         if base:
             limit=np.inf
-            sleep_time=10
+            sleep_time=80
         else:
-            limit=1
+            limit=2
             sleep_time=3
         count=0
         try:
@@ -102,6 +103,8 @@ class Locator():
                 try:
                     assert curr_url ==link or re.search(f"^{link}[^/.*]",curr_url) is not None
                 except AssertionError:
+                    if self.default_url in curr_url:
+                        return False
                     while curr_url !=link or re.search(f"^{link}[^/.*]",curr_url) is None:
                         self.driver.get(link)
                         curr_url=self.driver.current_url
@@ -112,8 +115,8 @@ class Locator():
                 except AssertionError:
                     return False
         return True
-    def get_attribute_(self,attrib,style_type,styling,multiple=False):
-        elem=self.locate(style_type,styling)
+    def get_attribute_(self,attrib,style_type,styling,multiple=False,refresh=True):
+        elem=self.locate(style_type,styling,refresh=refresh)
         
         if elem:
             if isinstance(elem,list):
@@ -147,7 +150,7 @@ class SideLocator(Locator):
         if elem:
             text=str([terms.text for terms in elem])
             print(text)
-            possible_jobs=["follow","like","save"]
+            possible_jobs=["follow","like","save","comment"]
             match_obj=re.search("(follow).*(like).*",text,re.S|re.I)
             if match_obj:
                 job=match_obj.groups()

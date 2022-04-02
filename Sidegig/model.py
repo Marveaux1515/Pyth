@@ -1,5 +1,5 @@
 import tensorflow as tf
-import cv2
+#import cv2
 from time import time
 from tensorflow import keras
 from tensorflow.keras.layers import Dense,Conv2D,Input,Flatten,MaxPooling2D
