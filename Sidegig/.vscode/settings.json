@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "C:\\Users\\DELL\\anaconda3\\envs\\deeplng\\python.exe",
+    "python.defaultInterpreterPath": "C:\\Users\\Hp\\anaconda3\\envs\\deeplng\\python.exe",
     "python.terminal.activateEnvironment": true,
-    "python.condaPath": "C:\\Users\\DELL\\anaconda3\\Scripts\\activate.bat C:\\Users\\DELL\\anaconda3\\envs\\deeplng"
+    "python.condaPath": "C:\\Users\\Hp\\anaconda3\\Scripts\\activate.bat C:\\Users\\DELL\\anaconda3\\envs\\deeplng"
 }

@@ -20,9 +20,9 @@ import numpy as np,matplotlib.pyplot as plt
 import os
 PATH=r"C:\Program Files (x86)\chromedriver.exe"
 
-URL="https://dashboard.sidegig.ng/account/user/dashboard"
-DEFAULT_URL="https://dashboard.sidegig.ng/account/user/jobs/active"
-default_urls=[DEFAULT_URL,DEFAULT_URL+"/#step_1",DEFAULT_URL+"/#step-2"]
+URL="https://app.sidegig.co"
+DEFAULT_URL="https://app.sidegig.co/account/user/jobs/active"
+default_urls=[DEFAULT_URL,DEFAULT_URL+"#step_1",DEFAULT_URL+"#step-2"]
 lock=threading.Lock()
 PROD_IMAGE_FOLDER=os.path.join("Image_data","Prod_images")
 if not os.path.exists(PROD_IMAGE_FOLDER):
@@ -32,26 +32,24 @@ def agent(user,driver):
     
     sidegig_agent=SideLocator(driver)
     def like():
-        is_liked=sidegig_agent.get_attribute_("aria-label","Css",".fr66n .QBdPU svg._8-yf5")
-        if is_liked=="Like":
-            like_click=sidegig_agent.click("Css",".fr66n .QBdPU svg._8-yf5",check_url=False)
-            time.sleep(4)
+        try:
             is_liked=sidegig_agent.get_attribute_("aria-label","Css",".fr66n .QBdPU svg._8-yf5")
-            if is_liked=="Unlike":
+            if is_liked=="Like":
+                like_click=sidegig_agent.click("Css",".fr66n .QBdPU svg._8-yf5",check_url=False)
+                time.sleep(4)
+                driver.back()
+            elif is_liked=="Unlike":
                 driver.back()
             else:
                 driver.back()
                 return False
-        elif is_liked=="Unlike":
-            driver.back()
-        else:
-            driver.back()
+            return True
+        except:
             return False
-        return True
     def check_following(remain):
         print("checking-follow..........")
         fol_state=sidegig_agent.get_attribute_("aria-label","Css","._6VtSN")
-        print("fol_state")
+        print()
         if fol_state:
             if fol_state.lower()=="following":
                 print(f"is followed={fol_state}")
@@ -113,14 +111,14 @@ def agent(user,driver):
         time.sleep(2)
         sidegig_agent.click("Tag_name","button",elem_idx=1)
         time.sleep(9)
-        driver.close()
+        #driver.close()
         driver.switch_to.window(driver.window_handles[0])
         time.sleep(2)
         return
     def preprocess_img(img_path):
         img_array=plt.imread(img_path)
         height, width, channels=36,120,4
-        img_array=img_array.reshape(height, width,channels)
+        img_array=img_array.reshape(img_array.shape[0], width,channels)
         img_arr_1=img_array[:,:img_array.shape[1]//2,:]
         img_arr_2=img_array[:,img_array.shape[1]//2:,:]
         return [img_arr_1,img_arr_2]
@@ -129,11 +127,12 @@ def agent(user,driver):
         sum=0
         values=[]
         for i,img_array in enumerate(preprocess_img(img_path)):
-            img_array=img_array.reshape(1,height, width,channels)
+            print(img_array.shape)
+            img_array=img_array.reshape(1,img_array.shape[0], width,channels)
             value=predict_img(img_array,model=mode[i],mapp=cls_map[i])
             sum+=value
             values.append(value)
-        return sum,value[0],value[1]
+        return sum,values[0],values[1]
     def revert_to_default(link):
         
         driver.get(DEFAULT_URL)
@@ -143,11 +142,16 @@ def agent(user,driver):
             return
         except:
             return 
-    def verify_job(user_img_folder,link,verify_count=0):
+    def verify_job(user_img_folder,link,desc,username,verify_count=0):
+        print("verify_count :",verify_count)
         if verify_count>2:
             driver.get(DEFAULT_URL)
             return 
-        next_button=sidegig_agent.click("Css",".sw-btn-next")
+        elif verify_count>=1:
+            next_button=True
+        else:
+            next_button=sidegig_agent.click("Css",".sw-btn-next")
+        
         if next_button:
             prod_img_path=os.path.join(user_img_folder,f"{time.time()}.png")
             time.sleep(3)
@@ -158,21 +162,31 @@ def agent(user,driver):
                 verify_sum,pred_two_dig,pred_one_dig=predict_add(curr_img_path)
                 if verify_sum:
                     insta_username=INSTAGRAM_DETAILS["username"][user][0]
-                    job_details=sidegig_agent.input_([insta_username,verify_sum],["Id","Id"],["proof_text","captcha"])
+                    job_details=sidegig_agent.input_([insta_username,verify_sum],["Id","Id"],["proof_text_2","captcha"])
                     if job_details:
-                        submit=sidegig_agent.click("Id","btn-completeJob",refresh=False)
+                        submit=sidegig_agent.click("Id","btn-completeJob",refresh=False,check_url=False)
                         if submit:
-                            verify_count+=1
+                            
                             alert=sidegig_agent.locate("Id","toast-container", refresh=False)
+                            count=0
                             while not alert:
+                                if count>2:
+                                    driver.refresh()
+                                    verify_job(user_img_folder,link,desc,username,verify_count)
                                 if driver.current_url in default_urls:
                                     break
                                 alert=sidegig_agent.locate("Id","toast-container", refresh=False)
+                                count+=1
+                            print("alert \t",alert.text)
                             if "success" in alert.text.lower():
                                 new_img_fname=f"{pred_two_dig}_{pred_one_dig} {curr_img}"
                                 new_img_dir=os.path.join("Image_data","Complete_images","train_")
                                 new_img_path=os.path.join(new_img_dir,new_img_fname)
                                 os.rename(curr_img_path,new_img_path)
+                                verify_count=0
+                                with open(f"{username}.txt","a") as f:
+                                    f.write(desc[0]+"\t"+desc[1]+"\n\n")
+
                                 return 
                             elif "invalid" in alert.text.lower():
                                 rename_folder=os.path.join("Image_data","Download_rename_images")
@@ -180,19 +194,25 @@ def agent(user,driver):
                                     os.mkdir(rename_folder)
                                 os.rename(curr_img_path,os.path.join(rename_folder,curr_img))
                                 driver.refresh()
-                                verify_job(user_img_folder,link,verify_count)
+                                verify_count+=1
+                                verify_job(user_img_folder,link,desc,username,verify_count)
                             else:
                                 driver.get(DEFAULT_URL)
                                 return
                         else:
+                            print("not submitted 0")
                             revert_to_default(link)
                     else:
+                        print("not submitted 1")
                         revert_to_default(link)
                 else:
+                   print("not submitted 2")
                    revert_to_default(link)
             else:
+                print("not submitted 3")
                 revert_to_default(link)
         else:
+            print("not submitted 4")
             revert_to_default(link)
         return True
 
@@ -218,11 +238,11 @@ def agent(user,driver):
         if os.path.exists(user_img_folder)==False:
             os.mkdir(user_img_folder)
         #input login details
-        instagram_tab(user,driver)
+        #instagram_tab(user,driver)
         input=sidegig_agent.input_([sidegig_username,sidegig_password],["Id","Name"],["user_name","password"])
         login=sidegig_agent.click("Id","loginBtn",refresh=False)
         alert=sidegig_agent.locate("Id","toast-container", refresh=False)
-        print(f" {alert.text.lower()} \n {'success' in alert.text.lower()}")
+        #print(f" {alert.text.lower()} \n {'success' in alert.text.lower()}")
         while not input or not login or driver.current_url!=URL:
             pop_up=sidegig_agent.locate("Css",".modal-content .modal-footer .btn-secondary",refresh=False)
             if pop_up:
@@ -233,14 +253,14 @@ def agent(user,driver):
         driver.get(DEFAULT_URL)
         job_check=sidegig_agent.locate("Css","tbody td:nth-child(6)",base=True)
         print(f"no of jobs = {len(job_check)}")
-        for _ in job_check:
+        while job_check:
             #waiting between job searches
-            wait_interval=10
+            wait_interval=2
             future_time=datetime.now()+timedelta(seconds=wait_interval)
             sleep=future_time-datetime.now()
             sleep_time=float(sleep.seconds)
             while datetime.now()<=future_time:
-                time.sleep(sleep_time+3)
+                time.sleep(sleep_time+1)
             min_rate_index=sidegig_agent.find_min_rate("Css",".table-responsive td:nth-child(5)")
             if min_rate_index:
                 cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child({min_rate_index}) .confirmation")
@@ -249,20 +269,20 @@ def agent(user,driver):
                 cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child({1}) .confirmation")
                 view_job=sidegig_agent.click("Css",f"tr:nth-child({1}) .btn-primary")
             if view_job:
-                job_description=sidegig_agent.search_job_description("Css","#step-1")
-                #job_description=False
-                if job_description:
-                    print("user ", user,":",job_description)
-                    job_link=sidegig_agent.click("Css","#step-1 a",check_url=False)
+                job_title=sidegig_agent.search_job_description("Css","#step-1")
+                if job_title:
+                    print("user ", user,":",job_title)
+                    job_link=sidegig_agent.locate("Css","#step-1 a")
                     if job_link:
-                        time.sleep(5)
-                        job_completed=execute_job(job_description)
-                        #job_completed=True
+                        #time.sleep(5)
+                        #job_completed=execute_job(job_title)
+                        job_completed=True
                         if len(driver.window_handles)>2:
                             driver.close()
                             driver.switch_to.window(driver.window_handles[0])
                         if job_completed:
-                            verify_job(user_img_folder,cancel_job_link)
+                            job_description=(job_title, job_link[0].text)
+                            verify_job(user_img_folder,cancel_job_link,job_description,sidegig_username)
                         else:
                             revert_to_default(cancel_job_link)
                     else:
@@ -282,8 +302,12 @@ def agent(user,driver):
 
 workers=[]
 num_workers=1
+options=webdriver.ChromeOptions()
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--no-sandbox")
+options.add_argument("--remote-debugging-port=9222")
 for worker_id in range(num_workers):
-    driver=webdriver.Chrome(PATH)
+    driver=webdriver.Chrome(PATH,options=options)
     thread_worker=threading.Thread(target=agent,args=(worker_id,driver))
     workers.append(thread_worker)
     thread_worker.start()
