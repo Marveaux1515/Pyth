@@ -10,7 +10,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 
 class Locator():
     def __init__(self,driver) -> None:
-        self.wait_time=np.random.randint(low=20, high=25)
+        self.wait_time=np.random.randint(low=13, high=20)
         self.driver=driver
         self.default_url = "https://app.sidegig.co/account/user/jobs/active"
         return
@@ -33,7 +33,7 @@ class Locator():
                     'Tag_name':[By.TAG_NAME,"self.driver.find_elements_by_tag_name(styling)",styling]}
         if base:
             limit=np.inf
-            sleep_time=80
+            sleep_time=np.random.randint(low=60, high=90)
         else:
             limit=2
             sleep_time=3
@@ -49,6 +49,10 @@ class Locator():
                 islocated=False
                 while  not islocated and count <limit:
                     islocated=self.refresh(style_dict,style_type,styling)
+                    if self.default_url in self.driver.current_url and not base:
+                        return False
+                    if islocated:
+                        return islocated
                     count+=1
                     time.sleep(sleep_time)
                 else:
@@ -108,6 +112,8 @@ class Locator():
                     while curr_url !=link or re.search(f"^{link}[^/.*]",curr_url) is None:
                         self.driver.get(link)
                         curr_url=self.driver.current_url
+                        if self.default_url in curr_url:
+                            return False
                         time.sleep(5)
             else:
                 try:

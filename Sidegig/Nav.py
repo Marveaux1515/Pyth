@@ -137,15 +137,18 @@ def agent(user,driver):
             value=predict_img(img_array,model=mode[i],mapp=cls_map[i])
             sum+=value
         return sum
-    def revert_to_default(link):
+    def revert_to_default(link,cancel=False):
         
         driver.get(DEFAULT_URL)
-        try:
-            cancel_job=driver.get(link)
-            print(cancel_job)
+        if cancel:
+            try:
+                cancel_job=driver.get(link)
+                print(cancel_job)
+                return
+            except:
+                return
+        else:
             return
-        except:
-            return 
     def verify_job(user_img_folder,link,desc,username,verify_count=0):
         print("verify_count :",verify_count)
         if verify_count>2:
@@ -178,8 +181,10 @@ def agent(user,driver):
                                     driver.refresh()
                                     if driver.current_url in default_urls:
                                         return
+                                    verify_count=1
                                     verify_job(user_img_folder,link,desc,username,verify_count)
-                                
+                                if driver.current_url in default_urls:
+                                    break
                                 alert=sidegig_agent.locate("Id","toast-container", refresh=False)
                                 count+=1
                             print("alert \t",alert.text)
@@ -285,7 +290,7 @@ def agent(user,driver):
                         else:
                             revert_to_default(cancel_job_link)
                     else:
-                        revert_to_default(cancel_job_link)
+                        revert_to_default(cancel_job_link,cancel=True)
                 else:
                     print("BNBFSGSG")
                     revert_to_default(cancel_job_link)
