@@ -123,7 +123,8 @@ def agent(user,driver):
             img_arr_1=img_array[:,:img_array.shape[1]//2,:]
             img_arr_2=img_array[:,img_array.shape[1]//2:,:]
             return [img_arr_1,img_arr_2]
-        except:
+        except Exception as e:
+            print(e)
             return
     def predict_add(img_path):
         height, width,channels=36,60,4
@@ -137,22 +138,25 @@ def agent(user,driver):
             value=predict_img(img_array,model=mode[i],mapp=cls_map[i])
             sum+=value
         return sum
-    def revert_to_default(link,cancel=False):
-        
-        driver.get(DEFAULT_URL)
+    def revert_to_default(link=None,cancel=False):
         if cancel:
             try:
                 cancel_job=driver.get(link)
                 print(cancel_job)
+                driver.get(DEFAULT_URL)
                 return
             except:
-                return
+                revert_to_default(link,cancel)
         else:
-            return
+            try:
+                driver.get(DEFAULT_URL)
+                return
+            except:
+                revert_to_default(link,cancel)
     def verify_job(user_img_folder,link,desc,username,verify_count=0):
         print("verify_count :",verify_count)
         if verify_count>2:
-            driver.get(DEFAULT_URL)
+            revert_to_default()
             return 
         elif verify_count>=1:
             next_button=True
@@ -184,44 +188,52 @@ def agent(user,driver):
                                     verify_count=1
                                     verify_job(user_img_folder,link,desc,username,verify_count)
                                 if driver.current_url in default_urls:
-                                    break
+                                    return
                                 alert=sidegig_agent.locate("Id","toast-container", refresh=False)
                                 count+=1
-                            print("alert \t",alert.text)
-                            if "success" in alert.text.lower():
-                                verify_count=0
-                                with open(f"{username}.html","a") as f:
-                                    f.write(f"<p>{desc[0]}</p><a href='{desc[1]}'>{desc[1]}</a><br><br>")
+                            # print("alert \t",alert.text)
+                            if alert:
+                                if "success" in alert.text.lower():
+                                    verify_count=0
 
-                                return 
-                            elif "invalid" in alert.text.lower():
-                                rename_folder=os.path.join("Image_data","Download_rename_images")
-                                if os.path.exists(rename_folder)==False:
-                                    os.mkdir(rename_folder)
-                                os.rename(curr_img_path,os.path.join(rename_folder,curr_img))
-                                driver.refresh()
-                                if driver.current_url in default_urls:
+                                    with open(f"{username}.html","a") as f:
+                                        f.write(f"<p>{desc[0]}</p><a href='{desc[1]}'>{desc[1]}</a><br><br>")
+
+                                    return 
+                                elif "invalid" in alert.text.lower():
+                                    try:
+                                        rename_folder=os.path.join("Image_data","Download_rename_images")
+                                        if os.path.exists(rename_folder)==False:
+                                            os.mkdir(rename_folder)
+                                        os.rename(curr_img_path,os.path.join(rename_folder,curr_img))
+                                        driver.refresh()
+                                        if driver.current_url in default_urls:
+                                            return
+                                        verify_count+=1
+                                        verify_job(user_img_folder,link,desc,username,verify_count)
+                                    except:
+                                        revert_to_default()
+                                        return
+                                else:
+                                    revert_to_default()
                                     return
-                                verify_count+=1
-                                verify_job(user_img_folder,link,desc,username,verify_count)
                             else:
-                                driver.get(DEFAULT_URL)
                                 return
                         else:
                             print("not submitted 0")
-                            revert_to_default(link)
+                            revert_to_default()
                     else:
                         print("not submitted 1")
-                        revert_to_default(link)
+                        revert_to_default()
                 else:
                    print("not submitted 2")
-                   revert_to_default(link)
+                   revert_to_default()
             else:
                 print("not submitted 3")
-                revert_to_default(link)
+                revert_to_default()
         else:
             print("not submitted 4")
-            revert_to_default(link)
+            revert_to_default()
         return True
 
 
@@ -260,6 +272,7 @@ def agent(user,driver):
             pop_up=sidegig_agent.locate("Css",".modal-content .modal-footer .btn-secondary")
             
         driver.get(DEFAULT_URL)
+        num_comment=15
         job_check=sidegig_agent.locate("Css","tbody td:nth-child(6)",base=True)
         print(f"no of jobs = {len(job_check)}")
         while job_check:
@@ -268,16 +281,30 @@ def agent(user,driver):
             min_rate_index=sidegig_agent.find_min_rate("Css",".table-responsive td:nth-child(5)")
             if min_rate_index:
                 cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child({min_rate_index}) .confirmation")
-                view_job=sidegig_agent.click("Css",f"tr:nth-child({min_rate_index}) .btn-primary")
+                if num_comment>14:
+                    job_elem=sidegig_agent.locate("Css",".table-responsive td:nth-child(3)",refresh=False)
+                    job_titles=[job.text.lower() for job in job_elem]
+                    if "comment" in job_titles[min_rate_index-1]:
+                        revert_to_default(cancel_job_link,True)
+                        view_job=False
+                    else:
+                        view_job=sidegig_agent.click("Css",f"tr:nth-child({min_rate_index}) .btn-primary")
+                else:
+                    view_job=sidegig_agent.click("Css",f"tr:nth-child({min_rate_index}) .btn-primary")
             else:
                 cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child({1}) .confirmation")
                 view_job=sidegig_agent.click("Css",f"tr:nth-child({1}) .btn-primary")
             if view_job:
                 job_title=sidegig_agent.search_job_description("Css","#step-1")
                 if job_title:
-                    print("user ", user,":",job_title)
+                    
+                    if job_title=="comment":
+                        num_comment+=1 
+                    print("user ", user,":",job_title,"num of comments: ",num_comment)
                     job_link=sidegig_agent.get_attribute_("href","Css","#step-1 a",refresh=False)
-                    if job_link:
+                    # if num_comment>10 and job_title=="comment":
+                    #     job_link=False
+                    if job_link and "instagram" in job_link:
                         #time.sleep(5)
                         #job_completed=execute_job(job_title)
                         job_completed=True
@@ -288,14 +315,14 @@ def agent(user,driver):
                             job_description=(job_title, job_link)
                             verify_job(user_img_folder,cancel_job_link,job_description,sidegig_username)
                         else:
-                            revert_to_default(cancel_job_link)
+                            revert_to_default()
                     else:
                         revert_to_default(cancel_job_link,cancel=True)
                 else:
                     print("BNBFSGSG")
-                    revert_to_default(cancel_job_link)
+                    revert_to_default()
             else:
-                driver.refresh()
+                revert_to_default()
             print("BNDDHD    KKL")
             job_check=sidegig_agent.locate("Css","tbody td:nth-child(6)",base=True)
         return

@@ -15,8 +15,9 @@ class Locator():
         self.default_url = "https://app.sidegig.co/account/user/jobs/active"
         return
     def refresh(self,style_dict:dict,style_type:str,styling:str)->Union[bool,list]:
-        self.driver.refresh()
+        
         try:
+            self.driver.refresh()
             WebDriverWait(self.driver, self.wait_time).until(
                     EC.presence_of_element_located((style_dict[style_type][0],style_dict[style_type][2])))
             web_element=eval(style_dict[style_type][1])
@@ -177,13 +178,16 @@ class SideLocator(Locator):
     def find_min_rate(self,style_type:str,styling:str)->Union[int,bool]:
         elem=self.locate(style_type,styling)
         if elem:
-            rates=[rate.text for rate in elem]
-            rates= [rate.split("/") for rate in rates]
-            int_rates=[[int(rate)for rate in split_rate] for split_rate in rates]
-            print(int_rates)
-            normalized_rates= [(rate[1]-rate[0])*rate[1] for rate in int_rates]
-            normalized_rates=np.log(np.array(normalized_rates))
-            minimum_rate=normalized_rates.min()
+            try:
+                rates=[rate.text for rate in elem]
+                rates= [rate.split("/") for rate in rates]
+                int_rates=[[int(rate)for rate in split_rate] for split_rate in rates]
+                print(int_rates)
+                normalized_rates= [(rate[1]-rate[0])*rate[1] for rate in int_rates]
+                normalized_rates=np.log(np.array(normalized_rates))
+                minimum_rate=normalized_rates.min()
+            except:
+                return False
             #minimum_rate_index=np.random.randint(low=1,high=len(normalized_rates))
             #minimum_rate_index=2
             if len(normalized_rates)>1:
