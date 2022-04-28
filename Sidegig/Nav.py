@@ -141,9 +141,10 @@ def agent(user,driver):
     def revert_to_default(url=DEFAULT_URL,link=None,cancel=False):
         if cancel:
             try:
+                driver.get(url)
                 cancel_job=driver.get(link)
                 print(cancel_job)
-                driver.get(url)
+                
                 return
             except:
                 time.sleep(2)
@@ -166,9 +167,8 @@ def agent(user,driver):
         if next_button:
             prod_img_path=os.path.join(user_img_folder,f"{time.time()}.png")
             curr_url=driver.current_url
-            time.sleep(1)
             cap_image=sidegig_agent.snapshot(prod_img_path,"Css","#proof_of_work img")
-            time.sleep(2)
+            
             driver.back()
             if cap_image:
                 curr_img=os.listdir(user_img_folder)[-1]
@@ -220,7 +220,7 @@ def agent(user,driver):
 
                                     with open(f"{username}.html","a") as f:
                                         f.write(f"<p>{desc[0]}</p><a href='{desc[1]}'>{desc[1]}</a><br><br>")
-
+                                    revert_to_default()
                                     return 
                                 else:
                                     revert_to_default()
@@ -252,10 +252,10 @@ def agent(user,driver):
         height=driver.get_window_size().get("height")
         try:
             #make all threads\windows visible
-            driver.set_window_size((width/num_workers)*0.95,height)
+            driver.set_window_size(870,height)
             driver.set_window_position((width/(num_workers/user))*0.95,0, windowHandle='current')
         except ZeroDivisionError:
-            driver.set_window_size((width/num_workers)*0.95,height)
+            driver.set_window_size(870,height)
             driver.set_window_position(0,0, windowHandle='current')
         #lock.acquire()
         #actions=ActionChains(driver)
@@ -270,15 +270,15 @@ def agent(user,driver):
         input=sidegig_agent.input_([sidegig_username,sidegig_password],["Id","Id"],["email","password"])
         login=sidegig_agent.click("Css",".button",refresh=False)
         
-        
-        job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",refresh=False)
-        while not job_check:
-             driver.get(URL)
-             input=sidegig_agent.input_([sidegig_username,sidegig_password],["Id","Id"],["email","password"])
-             login=sidegig_agent.click("Css",".button",refresh=False)
-             job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",refresh=False)
-        driver.get(DEFAULT_URL)
-        num_comment=0
+        revert_to_default()
+        # job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",refresh=False)
+        # while not job_check:
+        #      driver.get(URL)
+        #      input=sidegig_agent.input_([sidegig_username,sidegig_password],["Id","Id"],["email","password"])
+        #      login=sidegig_agent.click("Css",".button",refresh=False)
+        #      job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",refresh=False)
+        # driver.get(DEFAULT_URL)
+        num_comment=21
         # sys.exit()
         job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",base=True)
         print(f"no of jobs = {len(job_check)}")
@@ -289,7 +289,7 @@ def agent(user,driver):
             if min_rate_index:
                 cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child({min_rate_index}) a",multiple=True)[1]
                 print(cancel_job_link)
-                if num_comment>17:
+                if num_comment>20:
                     job_elem=sidegig_agent.locate("Css","tbody td:nth-child(1)",refresh=False)
                     job_titles=[job.text.lower() for job in job_elem]
                     if "comment" in job_titles[min_rate_index-1]:
@@ -300,7 +300,7 @@ def agent(user,driver):
                 else:
                     view_job=sidegig_agent.click("Css",f"tr:nth-child({min_rate_index}) .actions__view")
             else:
-                cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child({min_rate_index}) a",multiple=True)[1]
+                cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child(1) a",multiple=True)[1]
                 view_job=sidegig_agent.click("Css",f"tr:nth-child({1}) .actions__view")
             if view_job:
                 job_title=sidegig_agent.search_job_description("Css",".button__light")
@@ -310,7 +310,7 @@ def agent(user,driver):
                         num_comment+=1 
                     print("user ", user,":",job_title,"num of comments: ",num_comment)
                     job_link=sidegig_agent.get_attribute_("href","Css",".button__light a",refresh=False)
-                    if job_link and "instagram" in job_link:
+                    if job_link and ("instagram" in job_link or "twitter" in job_link):
                         #time.sleep(5)
                         #job_completed=execute_job(job_title)
                         job_completed=True
@@ -323,10 +323,10 @@ def agent(user,driver):
                         else:
                             revert_to_default()
                     else:
-                        revert_to_default(cancel_job_link,cancel=True)
+                        revert_to_default(link=cancel_job_link,cancel=True)
                 else:
                     print("BNBFSGSG")
-                    revert_to_default()
+                    revert_to_default(link=cancel_job_link,cancel=True)
             else:
                 revert_to_default()
             print("BNDDHD    KKL")
@@ -338,7 +338,7 @@ def agent(user,driver):
     side_gig_tab()
 
 workers=[]
-num_workers=1
+num_workers=3
 options=webdriver.ChromeOptions()
 # options.add_argument("--disable-dev-shm-usage")
 # options.add_argument("--no-sandbox")
