@@ -1,3 +1,4 @@
+from audioop import mul
 from typing import Union
 import numpy as np
 from selenium.webdriver.common.keys import Keys
@@ -10,23 +11,30 @@ from selenium.webdriver.common.action_chains import ActionChains
 
 class Locator():
     def __init__(self,driver) -> None:
-        self.wait_time=np.random.randint(low=13, high=20)
+        self.wait_time=np.random.randint(low=20, high=25)
         self.driver=driver
-        self.default_url = "https://app.sidegig.co/account/user/jobs/active"
+        self.default_url = "https://app.sidegig.co/tasks/available"
         return
-    def refresh(self,style_dict:dict,style_type:str,styling:str)->Union[bool,list]:
+    def refresh(self,style_dict:dict,style_type:str,styling:str,isbase=False)->Union[bool,list]:
         
         try:
-            self.driver.refresh()
+            if isbase:
+                try:
+                    self.driver.get(self.default_url)
+                except:
+                    self.driver.refresh()
+            else:
+                self.driver.refresh()
             WebDriverWait(self.driver, self.wait_time).until(
                     EC.presence_of_element_located((style_dict[style_type][0],style_dict[style_type][2])))
             web_element=eval(style_dict[style_type][1])
+            
             return web_element
-        except TimeoutException or StaleElementReferenceException or NoSuchElementException as e:
+        except Exception as e:
             print(f"refresh exception as {e}",styling, "not found")
 
             return False
-    def locate(self,style_type:str,styling:str,base=False,refresh=True)->Union[bool,list,str]:
+    def locate(self,style_type:str,styling:str,base=False,refresh=True,clickable=False)->Union[bool,list,str]:
         style_dict={'Id':[By.ID,"self.driver.find_element_by_id(styling)",styling],
                     'Name':[By.NAME,"self.driver.find_element_by_name(styling)",styling],
                     'Css':[By.CSS_SELECTOR,"self.driver.find_elements_by_css_selector(styling)",styling],
@@ -34,22 +42,30 @@ class Locator():
                     'Tag_name':[By.TAG_NAME,"self.driver.find_elements_by_tag_name(styling)",styling]}
         if base:
             limit=np.inf
-            sleep_time=np.random.randint(low=60, high=90)
+            sleep_time=np.random.randint(low=130, high=160)
         else:
             limit=2
             sleep_time=3
         count=0
         try:
-            WebDriverWait(self.driver, self.wait_time).until(
-                    EC.presence_of_element_located((style_dict[style_type][0],style_dict[style_type][2])))
-            web_element=eval(style_dict[style_type][1])
-            return web_element
-        except TimeoutException or StaleElementReferenceException or NoSuchElementException as e:
+            if not clickable:
+                WebDriverWait(self.driver, self.wait_time).until(
+                        EC.presence_of_element_located((style_dict[style_type][0],style_dict[style_type][2])))
+                web_element=eval(style_dict[style_type][1])
+                return web_element
+            else:
+                WebDriverWait(self.driver,self.wait_time).until(
+                    EC.element_to_be_clickable((style_dict[style_type][0],style_dict[style_type][2]))
+                )
+                web_element=eval(style_dict[style_type][1])
+                print("clicked")
+                return web_element
+        except Exception as e:
             print(f"location exception as {e}" ,styling, "not found")
             if refresh:
                 islocated=False
                 while  not islocated and count <limit:
-                    islocated=self.refresh(style_dict,style_type,styling)
+                    islocated=self.refresh(style_dict,style_type,styling,isbase=base)
                     if self.default_url in self.driver.current_url and not base:
                         return False
                     if islocated:
@@ -65,14 +81,17 @@ class Locator():
             elem=self.locate(style_type[i],styling[i],refresh=False)
             
             if elem:
-                elem.clear()
-                elem.send_keys(input_details[i])
+                try:
+                    elem.clear()
+                    elem.send_keys(input_details[i])
+                except:
+                    return False
             else:
                 return False
-        return True
-    def click(self,style_type:str,styling:str,refresh:bool=True,elem_idx=0,check_url=True)-> bool:
+        return elem
+    def click(self,style_type:str,styling:str,refresh:bool=True,elem_idx=0,check_url=True,clickable=True)-> bool:
         prev_url=self.driver.current_url
-        elem=self.locate(style_type,styling,refresh=refresh)
+        elem=self.locate(style_type,styling,refresh=refresh,clickable=clickable)
         style_dict={'Id':[By.ID,"self.driver.find_element_by_id(styling)",styling],
                     'Name':[By.NAME,"self.driver.find_element_by_name(styling)",styling],
                     'Css':[By.CSS_SELECTOR,"self.driver.find_elements_by_css_selector(styling)",styling],
@@ -105,16 +124,21 @@ class Locator():
         print(curr_url,"\t", link)
         if check_url:
             if link:
+                count=0
                 try:
                     assert curr_url ==link or re.search(f"^{link}[^/.*]",curr_url) is not None
                 except AssertionError:
                     if self.default_url in curr_url:
                         return False
                     while curr_url !=link or re.search(f"^{link}[^/.*]",curr_url) is None:
+                        if count>2:
+                            return False
                         self.driver.get(link)
                         curr_url=self.driver.current_url
+                        print(curr_url,"\t", link)
                         if self.default_url in curr_url:
                             return False
+                        count+=1
                         time.sleep(5)
             else:
                 try:
@@ -130,23 +154,34 @@ class Locator():
                 if not multiple:
                     attr=elem[0].get_attribute(attrib)
                 else:
-                    print(len(elem))
-                    if isinstance(multiple,int):
+                    
+                    if multiple!=True:
                         if len(elem) > multiple:
                             attr=[element.get_attribute(attrib) for element in elem[:multiple]]
+                            print("integ")
                         else:
                             attr=[element.get_attribute(attrib) for element in elem]
-                    elif isinstance(multiple,bool):
+                    else:
                         attr=[element.get_attribute(attrib) for element in elem]
+                        print("listtype")
             else:
                 attr=elem.get_attribute(attrib)
         else:
             return False
+        
         return attr
     def snapshot(self,f_path:str,style_type:str,styling:str):
         elem=self.locate(style_type,styling)
         if elem:
-            return elem[0].screenshot(f_path)
+            try:
+                src=elem[0].get_attribute("src")
+                self.driver.get(src)
+                elem_s=self.locate("Css","img",refresh=False)
+                time.sleep(1)
+                return elem_s[0].screenshot(f_path)
+            except:
+                return False
+
         else:
             return False
 class SideLocator(Locator):
@@ -155,9 +190,9 @@ class SideLocator(Locator):
     def search_job_description(self,style_type:str,styling:str)->str:
         elem=self.locate(style_type,styling)
         if elem:
-            text=str([terms.text for terms in elem])
+            text=str([terms.text.lower() for terms in elem])
             print(text)
-            possible_jobs=["follow","like","save","comment"]
+            possible_jobs=["follow","like","wedding","birthday","premium","save","comment","favorite","subscribe","view","share"]
             match_obj=re.search("(follow).*(like).*",text,re.S|re.I)
             if match_obj:
                 job=match_obj.groups()

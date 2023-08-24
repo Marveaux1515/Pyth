@@ -13,6 +13,7 @@ from config import SIDEGIG_DETAILS, INSTAGRAM_DETAILS
 from Utils import SideLocator
 from selenium import webdriver
 from selenium.webdriver.common.alert import Alert
+from selenium.webdriver.common.keys import Keys
 import time
 from datetime import datetime,timedelta
 from selenium.common.exceptions import TimeoutException
@@ -141,14 +142,13 @@ def agent(user,driver):
     def revert_to_default(url=DEFAULT_URL,link=None,cancel=False):
         if cancel:
             try:
-                driver.get(url)
                 cancel_job=driver.get(link)
                 print(cancel_job)
                 
                 return
             except:
                 time.sleep(2)
-                revert_to_default(url,link,cancel)
+                revert_to_default(link=link,cancel=cancel)
         else:
             try:
                 driver.get(url)
@@ -158,16 +158,23 @@ def agent(user,driver):
                 revert_to_default(url,link,cancel)
     def verify_job(user_img_folder,link,desc,username,verify_count=0):
         print("verify_count :",verify_count)
+        view_task_status=sidegig_agent.locate("Css","p#last span")
+        if view_task_status:
+            print("TASK STATUS:  ",view_task_status[0].text)
+            if "complete" in view_task_status[0].text.lower():
+                revert_to_default()
+                return
+        
         if verify_count>2:
             revert_to_default()
             return 
         else:
-            next_button=sidegig_agent.click("Css","label+ label",check_url=False)
+            next_button=sidegig_agent.click("Css","#btn",check_url=False)
         
         if next_button:
             prod_img_path=os.path.join(user_img_folder,f"{time.time()}.png")
             curr_url=driver.current_url
-            cap_image=sidegig_agent.snapshot(prod_img_path,"Css","#proof_of_work img")
+            cap_image=sidegig_agent.snapshot(prod_img_path,"Css","fieldset.current img")
             
             driver.back()
             if cap_image:
@@ -179,7 +186,13 @@ def agent(user,driver):
                     insta_username=INSTAGRAM_DETAILS["username"][user][0]
                     job_details=sidegig_agent.input_([verify_sum],["Id"],["captcha"])
                     if job_details:
-                        submit=sidegig_agent.click("Css","#proof_of_work button",refresh=False,check_url=False)
+                        try:
+                            time.sleep(5)
+                            job_details.submit()
+                            submit=True
+                        except:
+                            submit=False
+                        # sidegig_agent.click("Css","#proof_of_work button",refresh=False,check_url=False)
                         if submit:
                             
                             alert=sidegig_agent.locate("Css",".show p", refresh=False)
@@ -190,6 +203,8 @@ def agent(user,driver):
                                     revert_to_default(url=curr_url)
                                     verify_job(user_img_folder,link,desc,username,verify_count)
                                 if driver.current_url in default_urls:
+                                    with open(f"{username}.html","a") as f:
+                                        f.write(f"<p>{desc[0]}</p><a href='{desc[1]}'>{desc[1]}</a><br><br>")
                                     return
                                 alert=sidegig_agent.locate("Css",".show p", refresh=False)
                                 count+=1
@@ -214,7 +229,7 @@ def agent(user,driver):
                                     except:
                                         revert_to_default()
                                         return
-                                elif "previously completed" in alert.text.lower():
+                                elif "previously complete" in alert.text.lower():
                                     verify_count=0
                                     print("previously completed")
 
@@ -222,6 +237,9 @@ def agent(user,driver):
                                         f.write(f"<p>{desc[0]}</p><a href='{desc[1]}'>{desc[1]}</a><br><br>")
                                     revert_to_default()
                                     return 
+                                elif "username field" in alert.text.lower():
+                                    revert_to_default(link=link,cancel=True)
+                                    return
                                 else:
                                     revert_to_default()
                                     return
@@ -268,49 +286,70 @@ def agent(user,driver):
         #input login details
         #instagram_tab(user,driver)
         input=sidegig_agent.input_([sidegig_username,sidegig_password],["Id","Id"],["email","password"])
-        login=sidegig_agent.click("Css",".button",refresh=False)
+        login=sidegig_agent.click("Css",".login",refresh=False)
         
         revert_to_default()
-        # job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",refresh=False)
-        # while not job_check:
-        #      driver.get(URL)
-        #      input=sidegig_agent.input_([sidegig_username,sidegig_password],["Id","Id"],["email","password"])
-        #      login=sidegig_agent.click("Css",".button",refresh=False)
-        #      job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",refresh=False)
-        # driver.get(DEFAULT_URL)
-        num_comment=21
-        # sys.exit()
+        job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",refresh=False)
+        while not job_check and driver.current_url!= DEFAULT_URL:
+             driver.get(URL)
+             input=sidegig_agent.input_([sidegig_username,sidegig_password],["Id","Id"],["email","password"])
+             login=sidegig_agent.click("Css",".button",refresh=False)
+             job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",refresh=False)
+        driver.get(DEFAULT_URL)
+        num_comment=9
+
+
+        
         job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",base=True)
         print(f"no of jobs = {len(job_check)}")
         while job_check:
-            #waiting between job searches
-            time.sleep(3)
-            min_rate_index=sidegig_agent.find_min_rate("Css","tbody td:nth-child(3)")
+            #waiting between job searches 
+            time.sleep(1)
+            min_rate_index=sidegig_agent.find_min_rate("Css","tbody td:nth-child(4)")
             if min_rate_index:
                 cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child({min_rate_index}) a",multiple=True)[1]
+                cancel_job_link=str(cancel_job_link).replace("view","cancel")
                 print(cancel_job_link)
-                if num_comment>20:
-                    job_elem=sidegig_agent.locate("Css","tbody td:nth-child(1)",refresh=False)
-                    job_titles=[job.text.lower() for job in job_elem]
-                    if "comment" in job_titles[min_rate_index-1]:
-                        revert_to_default(cancel_job_link,True)
-                        view_job=False
-                    else:
-                        view_job=sidegig_agent.click("Css",f"tr:nth-child({min_rate_index}) .actions__view")
+                job_elem=sidegig_agent.locate("Css","tbody td:nth-child(1)",refresh=False)
+                job_titles=[job.text.lower() for job in job_elem]
+                job_title_selected=job_titles[min_rate_index-1]
+                
+                if user==3 or user==4:
+                    if "ig" not in job_title_selected:
+                        revert_to_default(link=cancel_job_link,cancel=True)
+                        job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",base=True)
+                        continue
                 else:
-                    view_job=sidegig_agent.click("Css",f"tr:nth-child({min_rate_index}) .actions__view")
+                    if "ig" not in job_title_selected and "favor" not in job_title_selected and "yt" not in job_title_selected and "tk" not in job_title_selected:
+                        revert_to_default(link=cancel_job_link,cancel=True)
+                        job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",base=True)
+                        continue
+                if num_comment>=10:
+                    if "comment" in job_titles[min_rate_index-1] and "premium" not in job_titles[min_rate_index-1] and "birthday" not in job_titles[min_rate_index-1]:
+                        revert_to_default(link=cancel_job_link,cancel=True)
+                        job_check=sidegig_agent.locate("Css","tbody td:nth-child(3)",base=True)
+                        continue
+                    else:
+                        job_title=sidegig_agent.search_job_description("Css",f"tbody tr:nth-child({min_rate_index}) td:nth-child(1)")
+                        view_job=sidegig_agent.click("Css",f"tr:nth-child({min_rate_index}) a")
+                else:
+                    job_title=sidegig_agent.search_job_description("Css",f"tbody tr:nth-child({min_rate_index}) td:nth-child(1)")
+                    view_job=sidegig_agent.click("Css",f"tr:nth-child({min_rate_index}) a")
             else:
-                cancel_job_link=sidegig_agent.get_attribute_("href","Css",f"tr:nth-child(1) a",multiple=True)[1]
-                view_job=sidegig_agent.click("Css",f"tr:nth-child({1}) .actions__view")
+                
+                cancel_job_link=sidegig_agent.get_attribute_("href","Css","tr:nth-child(1) a")
+                cancel_job_link=str(cancel_job_link).replace("view","cancel")
+                job_title=sidegig_agent.search_job_description("Css","tbody tr:nth-child(1) td:nth-child(1)")
+                view_job=sidegig_agent.click("Css","tr:nth-child(1) a")
             if view_job:
-                job_title=sidegig_agent.search_job_description("Css",".button__light")
+                
                 if job_title:
-                    
+                    print("job_title",job_title)
                     if job_title=="comment":
                         num_comment+=1 
                     print("user ", user,":",job_title,"num of comments: ",num_comment)
-                    job_link=sidegig_agent.get_attribute_("href","Css",".button__light a",refresh=False)
-                    if job_link and ("instagram" in job_link or "twitter" in job_link):
+                    job_link=sidegig_agent.get_attribute_("href","Css",".copyLink a",refresh=False)
+                    if job_link:
                         #time.sleep(5)
                         #job_completed=execute_job(job_title)
                         job_completed=True
